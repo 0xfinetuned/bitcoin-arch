@@ -12,4 +12,5 @@ bitcoin_hashes = "0.13.0"
 bech32 = "0.11.0"
 hashes = "0.1.9"
 base58 = { path = "base58" }
+opcodes = { path = "opcodes" }
 serde = { version = "1.0.197", features = ["derive"] }

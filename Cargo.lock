@@ -31,6 +31,7 @@ dependencies = [
  "bitcoin_hashes",
  "hashes",
  "hex",
+ "opcodes",
  "serde",
 ]
 
@@ -67,6 +68,10 @@ name = "hex-conservative"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "30ed443af458ccb6d81c1e7e661545f94d3176752fb1df2f543b902a1e0f51e2"
+
+[[package]]
+name = "opcodes"
+version = "0.1.0"
 
 [[package]]
 name = "proc-macro2"
