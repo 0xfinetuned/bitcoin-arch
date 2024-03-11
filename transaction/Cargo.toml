@@ -1,5 +1,5 @@
 [package]
-name = "bitcoin-arch"
+name = "transaction"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,11 +7,4 @@ edition = "2021"
 
 [dependencies]
 hex = "0.4.3"
-base64 = "0.22.0"
-bitcoin_hashes = "0.13.0"
-bech32 = "0.11.0"
-hashes = "0.1.9"
-base58 = { path = "base58" }
-opcodes = { path = "opcodes" }
-transaction = { path = "transaction" }
 serde = { version = "1.0.197", features = ["derive"] }
