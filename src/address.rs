@@ -5,7 +5,7 @@ use crate::types;
 
 pub struct BitcoinAddress {
     pub network: BitcoinNetwork,
-    pub payload: Payload,
+    pub payload: Vec<u8>,
 }
 
 #[derive(Debug, Clone)]
@@ -35,7 +35,8 @@ impl FromStr for BitcoinAddress {
             return Ok(BitcoinAddress {
                 network,
                 // TODO(chinonso): assume its a script hash for now, should change later
-                payload: Payload::ScriptHash(ScriptHash::from_slice(&data).unwrap()),
+                // payload: Payload::ScriptHash(ScriptHash::from_slice(&data).unwrap()),
+                payload: data,
             });
         }
 
@@ -67,19 +68,25 @@ impl FromStr for BitcoinAddress {
             _ => panic!("base58 invalid address version"),
         };
 
-        Ok(BitcoinAddress { network, payload })
+        Ok(BitcoinAddress { network, payload: payload.to_vec() })
     }
 }
 
 impl BitcoinAddress {
-    pub fn to_script_pubkey(&self) -> ScriptPubkey {
-        match &self.payload {
-            Payload::PubkeyHash(ph) => ScriptPubkey::from(ph),
-            Payload::ScriptHash(sh) => ScriptPubkey::from(sh),
-        }
+    pub fn to_script(&self) -> ScriptPubkey {
+        ScriptPubkey::try_from(&self.payload[..]).expect("should be a valid script pubkey")
     }
 
-    pub fn from_script_pubkey(spk: ScriptPubkey, network: BitcoinNetwork) -> Self {
+    pub fn from_script(spk: ScriptPubkey, network: BitcoinNetwork) -> Self {
+        // first identify the type of script (scriptPubkey) - P2PKH, P2SH, OP_RETURN, P2MS
+        // convert the script depending on the type, e.g script_to_p2pkh_address, script_to_p2sh_address
+        // handle cases where the script cannot be converted to an address
+
+        // split the scriptPubkey and get s from it
+        // s can be pubkeyHash or scriptHash
+        // if scriptHash, using the tutorial, get address from scriptHash
+        // if pubkeyHash,
+
         todo!()
     }
 }

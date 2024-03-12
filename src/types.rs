@@ -1,6 +1,7 @@
 use crate::address::BitcoinAddress;
 use opcodes::all::*;
 use std::io::Error;
+use crate::utils::{is_pubkey_hash, is_p2sh, is_script_hash};
 
 // TODO(chinonso): update with the actual values
 pub const PUBKEY_ADDRESS_PREFIX_MAIN: u8 = 1;
@@ -38,6 +39,15 @@ impl PubkeyHash {
 pub enum Payload {
     PubkeyHash(PubkeyHash),
     ScriptHash(ScriptHash),
+}
+
+impl Payload {
+    pub fn to_vec(&self) -> Vec<u8> {
+        match self {
+            Payload::PubkeyHash(ph) => ph.inner.clone(),
+            Payload::ScriptHash(sh) => sh.inner.clone()
+        }
+    }
 }
 
 pub struct ScriptPubkey(String);
@@ -81,6 +91,48 @@ impl From<&ScriptHash> for ScriptPubkey {
             s,
             OP_EQUAL.to_u8()
         ))
+    }
+}
+
+// impl From<&[u8]> for ScriptPubkey {
+//     fn from(value: &[u8]) -> Self {
+//         todo!()
+//     }
+// }
+
+impl TryFrom<&[u8]> for ScriptPubkey {
+    type Error = &'static str;
+
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        // TODO(chinonso): check that it is a valid
+
+        if is_pubkey_hash(value) {
+            let s =
+                std::str::from_utf8(value).expect("pubkey hash value should be valid utf8");
+            return Ok(Self(format!(
+                "{:x?}{:x?}{:x?}{}{:x?}{:x?}",
+                OP_DUP.to_u8(),
+                OP_HASH160.to_u8(),
+                OP_PUSHBYTES_20.to_u8(),
+                s,
+                OP_EQUALVERIFY.to_u8(),
+                OP_CHECKSIG.to_u8()
+            )));
+        }
+
+        if is_script_hash(value) {
+            let s =
+                std::str::from_utf8(value).expect("script hash value should be valid utf8");
+            return Ok(Self(format!(
+                "{:x?}{:x?}{}{:x?}",
+                OP_HASH160.to_u8(),
+                OP_PUSHBYTES_20.to_u8(),
+                s,
+                OP_EQUAL.to_u8()
+            )));
+        }
+
+        return Err("Invalid byte slice")
     }
 }
 
