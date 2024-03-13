@@ -146,7 +146,6 @@ impl BitcoinTransaction {
             outputs,
             locktime
         }
-
     }
 
     fn to_hex(self) -> String {
