@@ -1,10 +1,10 @@
-use std::io::{Error, ErrorKind};
-use crate::network::BitcoinNetwork;
-use crate::types::{Payload, PubkeyHash, ScriptHash, ScriptPubkey, ScriptTypes};
-use std::str::FromStr;
 use crate::types;
-use opcodes::all::*;
+use crate::types::BitcoinNetwork;
+use crate::types::{Payload, PubkeyHash, ScriptHash, ScriptPubkey, ScriptTypes};
 use crate::utils::get_script_type;
+use opcodes::all::*;
+use std::io::{Error, ErrorKind};
+use std::str::FromStr;
 
 pub struct BitcoinAddress {
     pub network: BitcoinNetwork,
@@ -69,7 +69,10 @@ impl FromStr for BitcoinAddress {
             _ => panic!("base58 invalid address version"),
         };
 
-        Ok(BitcoinAddress { network, payload: payload.to_vec() })
+        Ok(BitcoinAddress {
+            network,
+            payload: payload.to_vec(),
+        })
     }
 }
 
@@ -77,86 +80,69 @@ impl BitcoinAddress {
     pub fn to_p2pkh_script(&self) -> Result<ScriptPubkey, Error> {
         let res = std::str::from_utf8(&self.payload[..]);
         match res {
-            Ok(pkh_str) => {
-                Ok(ScriptPubkey::new(
+            Ok(pkh_str) => Ok(ScriptPubkey::new(
                 format!(
-                        "{:x?}{:x?}{:x?}{}{:x?}{:x?}",
-                        OP_DUP.to_u8(),
-                        OP_HASH160.to_u8(),
-                        OP_PUSHBYTES_20.to_u8(),
-                        pkh_str,
-                        OP_EQUALVERIFY.to_u8(),
-                        OP_CHECKSIG.to_u8()
-                    ).as_bytes()
-                ))
-            }
-            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid pubkey hash"))
+                    "{:x?}{:x?}{:x?}{}{:x?}{:x?}",
+                    OP_DUP.to_u8(),
+                    OP_HASH160.to_u8(),
+                    OP_PUSHBYTES_20.to_u8(),
+                    pkh_str,
+                    OP_EQUALVERIFY.to_u8(),
+                    OP_CHECKSIG.to_u8()
+                )
+                .as_bytes(),
+            )),
+            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid pubkey hash")),
         }
     }
 
     pub fn to_p2sh_script(&self) -> Result<ScriptPubkey, Error> {
         let res = std::str::from_utf8(&self.payload[..]);
         match res {
-            Ok(sh_str) => {
-                Ok(ScriptPubkey::new(
-                    format!(
-                        "{:x?}{:x?}{}{:x?}",
-                        OP_HASH160.to_u8(),
-                        OP_PUSHBYTES_20.to_u8(),
-                        sh_str,
-                        OP_EQUAL.to_u8()
-                    ).as_bytes()
-                ))
-            }
-            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid script hash"))
+            Ok(sh_str) => Ok(ScriptPubkey::new(
+                format!(
+                    "{:x?}{:x?}{}{:x?}",
+                    OP_HASH160.to_u8(),
+                    OP_PUSHBYTES_20.to_u8(),
+                    sh_str,
+                    OP_EQUAL.to_u8()
+                )
+                .as_bytes(),
+            )),
+            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid script hash")),
         }
     }
 
     pub fn to_p2wpkh_script(&self) -> Result<ScriptPubkey, Error> {
         let res = std::str::from_utf8(&self.payload[..]);
         match res {
-            Ok(pkh_str) => {
-                Ok(ScriptPubkey::new(
-                    format!(
-                        "00{:x?}{}",
-                        OP_PUSHBYTES_20.to_u8(),
-                        pkh_str,
-                    ).as_bytes()
-                ))
-            }
-            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid pubkey hash"))
+            Ok(pkh_str) => Ok(ScriptPubkey::new(
+                format!("00{:x?}{}", OP_PUSHBYTES_20.to_u8(), pkh_str,).as_bytes(),
+            )),
+            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid pubkey hash")),
         }
     }
 
     pub fn to_p2wsh_script(&self) -> Result<ScriptPubkey, Error> {
         let res = std::str::from_utf8(&self.payload[..]);
         match res {
-            Ok(sh_str) => {
-                Ok(ScriptPubkey::new(
-                    format!(
-                        "00{:x?}{}",
-                        OP_PUSHBYTES_32.to_u8(),
-                        sh_str,
-                    ).as_bytes()
-                ))
-            }
-            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid script hash"))
+            Ok(sh_str) => Ok(ScriptPubkey::new(
+                format!("00{:x?}{}", OP_PUSHBYTES_32.to_u8(), sh_str,).as_bytes(),
+            )),
+            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid script hash")),
         }
     }
 
     pub fn to_op_return_script(&self) -> Result<ScriptPubkey, Error> {
         let res = std::str::from_utf8(&self.payload[..]);
         match res {
-            Ok(s) => {
-                Ok(ScriptPubkey::new(
-                    format!(
-                        "{:x?}{}",
-                        OP_RETURN.to_u8(),
-                        s,
-                    ).as_bytes()
-                ))
-            }
-            Err(_) => Err(Error::new(ErrorKind::InvalidData, "invalid OP_RETURN script hash"))
+            Ok(s) => Ok(ScriptPubkey::new(
+                format!("{:x?}{}", OP_RETURN.to_u8(), s,).as_bytes(),
+            )),
+            Err(_) => Err(Error::new(
+                ErrorKind::InvalidData,
+                "invalid OP_RETURN script hash",
+            )),
         }
     }
 
@@ -167,7 +153,7 @@ impl BitcoinAddress {
             ScriptTypes::P2SH => Some(spk.value()[4..44].to_vec()),
             ScriptTypes::OPReturn => None,
             ScriptTypes::P2WPKH | ScriptTypes::P2WSH => Some(spk.value()[4..].to_vec()),
-            _ => None
+            _ => None,
         };
 
         Ok(BitcoinAddress {
@@ -178,11 +164,10 @@ impl BitcoinAddress {
     }
 }
 
-
 #[cfg(test)]
 mod test {
     use crate::address::BitcoinAddress;
-    use crate::network::BitcoinNetwork;
+    use crate::types::BitcoinNetwork;
 
     #[test]
     fn bitcoin_address_to_p2pkh_and_back() {
@@ -194,12 +179,18 @@ mod test {
         let script = bitcoin_address.to_p2pkh_script();
         assert!(script.is_ok());
         let script = script.unwrap();
-        assert_eq!(script.value(), b"76a91455ae51684c43435da751ac8d2173b2652eb6410588ac");
+        assert_eq!(
+            script.value(),
+            b"76a91455ae51684c43435da751ac8d2173b2652eb6410588ac"
+        );
 
         let ba = BitcoinAddress::from_script(script, BitcoinNetwork::Bitcoin);
         assert!(ba.is_ok());
         let ba = ba.unwrap();
-        assert_eq!(ba.payload, b"55ae51684c43435da751ac8d2173b2652eb64105".to_vec())
+        assert_eq!(
+            ba.payload,
+            b"55ae51684c43435da751ac8d2173b2652eb64105".to_vec()
+        )
     }
 
     #[test]
@@ -212,12 +203,18 @@ mod test {
         let script = bitcoin_address.to_p2sh_script();
         assert!(script.is_ok());
         let script = script.unwrap();
-        assert_eq!(script.value(), b"a914748284390f9e263a4b766a75d0633c50426eb87587");
+        assert_eq!(
+            script.value(),
+            b"a914748284390f9e263a4b766a75d0633c50426eb87587"
+        );
 
         let ba = BitcoinAddress::from_script(script, BitcoinNetwork::Bitcoin);
         assert!(ba.is_ok());
         let ba = ba.unwrap();
-        assert_eq!(ba.payload, b"748284390f9e263a4b766a75d0633c50426eb875".to_vec())
+        assert_eq!(
+            ba.payload,
+            b"748284390f9e263a4b766a75d0633c50426eb875".to_vec()
+        )
     }
 
     #[test]
@@ -230,12 +227,18 @@ mod test {
         let script = bitcoin_address.to_p2wpkh_script();
         assert!(script.is_ok());
         let script = script.unwrap();
-        assert_eq!(script.value(), b"0014853ec3166860371ee67b7754ff85e13d7a0d6698");
+        assert_eq!(
+            script.value(),
+            b"0014853ec3166860371ee67b7754ff85e13d7a0d6698"
+        );
 
         let ba = BitcoinAddress::from_script(script, BitcoinNetwork::Bitcoin);
         assert!(ba.is_ok());
         let ba = ba.unwrap();
-        assert_eq!(ba.payload, b"853ec3166860371ee67b7754ff85e13d7a0d6698".to_vec())
+        assert_eq!(
+            ba.payload,
+            b"853ec3166860371ee67b7754ff85e13d7a0d6698".to_vec()
+        )
     }
 
     #[test]
@@ -248,12 +251,18 @@ mod test {
         let script = bitcoin_address.to_p2wsh_script();
         assert!(script.is_ok());
         let script = script.unwrap();
-        assert_eq!(script.value(), b"002065f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3");
+        assert_eq!(
+            script.value(),
+            b"002065f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"
+        );
 
         let ba = BitcoinAddress::from_script(script, BitcoinNetwork::Bitcoin);
         assert!(ba.is_ok());
         let ba = ba.unwrap();
-        assert_eq!(ba.payload, b"65f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3".to_vec())
+        assert_eq!(
+            ba.payload,
+            b"65f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3".to_vec()
+        )
     }
 
     #[test]

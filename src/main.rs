@@ -1,9 +1,7 @@
 mod address;
-mod network;
 mod types;
 mod utils;
 
-use std::str::FromStr;
 use transaction::BitcoinTransaction;
 
 fn main() {
