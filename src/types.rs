@@ -1,4 +1,4 @@
-use std::io::Error;
+use bech32::Fe32;
 
 // TODO(chinonso): update with the actual values
 pub const PUBKEY_ADDRESS_PREFIX_MAIN: u8 = b'1';
@@ -16,42 +16,44 @@ pub enum BitcoinNetwork {
     Regtest,
 }
 
-pub struct ScriptHash {
-    inner: Vec<u8>,
-}
-
-impl ScriptHash {
-    pub fn from_slice(buffer: &[u8]) -> Result<ScriptHash, Error> {
-        // TODO(chinonso): should verify if it is a valid script hash somehow
-        Ok(ScriptHash {
-            inner: buffer.to_vec(),
-        })
-    }
-}
-
-pub struct PubkeyHash {
-    inner: Vec<u8>,
-}
-
-impl PubkeyHash {
-    pub fn from_slice(buffer: &[u8]) -> Result<PubkeyHash, Error> {
-        // TODO(chinonso): should verify if it is a valid pubkeyhash somehow
-        Ok(PubkeyHash {
-            inner: buffer.to_vec(),
-        })
-    }
-}
-
 pub enum Payload {
-    PubkeyHash(PubkeyHash),
-    ScriptHash(ScriptHash),
+    PubkeyHash(Vec<u8>),
+    ScriptHash(Vec<u8>),
+    WitnessProgram(WitnessProgram),
 }
 
 impl Payload {
     pub fn to_vec(&self) -> Vec<u8> {
         match self {
-            Payload::PubkeyHash(ph) => ph.inner.clone(),
-            Payload::ScriptHash(sh) => sh.inner.clone(),
+            Payload::PubkeyHash(ph) => ph.clone(),
+            Payload::ScriptHash(sh) => sh.clone(),
+            Payload::WitnessProgram(wp) => wp.data.clone(),
+        }
+    }
+}
+
+pub struct WitnessProgram {
+    pub version: WitnessVersion,
+    pub data: Vec<u8>,
+}
+
+impl WitnessProgram {
+    pub fn new(version: WitnessVersion, data: Vec<u8>) -> WitnessProgram {
+        WitnessProgram { version, data }
+    }
+}
+
+pub enum WitnessVersion {
+    V0,
+    V1,
+}
+
+impl WitnessVersion {
+    pub fn from_fe32(val: Fe32) -> Self {
+        match val.to_u8() {
+            0 => WitnessVersion::V0,
+            1 => WitnessVersion::V1,
+            _ => panic!("invalid witness script"),
         }
     }
 }

@@ -15,6 +15,9 @@ pub fn get_script_type(script: &[u8]) -> Result<ScriptTypes, std::io::Error> {
     if is_p2wsh(script) {
         return Ok(ScriptTypes::P2WSH);
     }
+    if is_p2tr(script) {
+        return Ok(ScriptTypes::P2TR);
+    }
     if is_op_return(script) {
         return Ok(ScriptTypes::OPReturn);
     }
@@ -51,6 +54,11 @@ fn is_p2wsh(data: &[u8]) -> bool {
     hex_str.len() == 68
         && &hex_str[..2] == "00"
         && hex_str[2..4] == format!("{:x?}", OP_PUSHBYTES_32.to_u8())
+}
+
+fn is_p2tr(data: &[u8]) -> bool {
+    let hex_str = std::str::from_utf8(data).expect("invalid p2tr script");
+    hex_str.len() == 68 && hex_str[..2] == format!("{:x?}", OP_PUSHBYTES_32.to_u8())
 }
 
 fn is_op_return(data: &[u8]) -> bool {
