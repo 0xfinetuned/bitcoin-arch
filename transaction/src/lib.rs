@@ -82,8 +82,6 @@ impl BitcoinTransaction {
             byte_tx.drain(..1).collect::<Vec<u8>>().try_into().unwrap()
         );
 
-        println!("{} {}", marker, flag);
-
         let input_counts = decode_compact_size(&mut byte_tx);
 
         let mut inputs = Vec::new();
