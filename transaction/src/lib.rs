@@ -1,7 +1,5 @@
-use serde::{Serialize, Deserialize};
 use std::convert::TryFrom;
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct Input {
 	pub txid: String,
 	pub vout: u32,
@@ -10,13 +8,11 @@ pub struct Input {
     pub witness: Vec<Vec<u8>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct Output {
 	pub amount: u64,
 	pub script_pubkey: Vec<u8>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Eq, PartialEq)]
 pub struct BitcoinTransaction {
 	pub version: u32,
 	pub inputs: Vec<Input>,
