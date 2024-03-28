@@ -25,40 +25,40 @@ pub fn get_script_type(script: &[u8]) -> Result<ScriptTypes, std::io::Error> {
 }
 
 fn is_p2pkh(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid p2pkh script pubkey");
-    hex_str.len() == 50
-        && hex_str[..2] == format!("{:x?}", OP_DUP.to_u8())
-        && hex_str[2..4] == format!("{:x?}", OP_HASH160.to_u8())
-        && hex_str[4..6] == format!("{:x?}", OP_PUSHBYTES_20.to_u8())
-        && hex_str[46..48] == format!("{:x?}", OP_EQUALVERIFY.to_u8())
-        && hex_str[48..] == format!("{:x?}", OP_CHECKSIG.to_u8())
+    let hex_data = hex::decode(data).expect("invalid p2pkh script pubkey");
+    hex_data.len() == 25
+        && hex_data[0] == OP_DUP.to_u8()
+        && hex_data[1] == OP_HASH160.to_u8()
+        && hex_data[2] == OP_PUSHBYTES_20.to_u8()
+        && hex_data[23] == OP_EQUALVERIFY.to_u8()
+        && hex_data[24] == OP_CHECKSIG.to_u8()
 }
 
 fn is_p2sh(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid p2sh script pubkey");
-    hex_str.len() == 46
-        && hex_str[..2] == format!("{:x?}", OP_HASH160.to_u8())
-        && hex_str[2..4] == format!("{:x?}", OP_PUSHBYTES_20.to_u8())
-        && hex_str[44..] == format!("{:x?}", OP_EQUAL.to_u8())
+    let hex_data = hex::decode(data).expect("invalid p2sh script pubkey");
+    hex_data.len() == 23
+        && hex_data[0] == OP_HASH160.to_u8()
+        && hex_data[1] == OP_PUSHBYTES_20.to_u8()
+        && hex_data[22] == OP_EQUAL.to_u8()
 }
 
 fn is_p2wpkh(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid p2wpkh script pubkey");
-    hex_str.len() == 44
-        && &hex_str[..2] == "00"
-        && hex_str[2..4] == format!("{:x?}", OP_PUSHBYTES_20.to_u8())
+    let hex_data = hex::decode(data).expect("invalid p2wpkh script pubkey");
+    hex_data.len() == 22
+        && hex_data[0] == 0
+        && hex_data[1] == OP_PUSHBYTES_20.to_u8()
 }
 
 fn is_p2wsh(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid p2wsh script pubkey");
-    hex_str.len() == 68
-        && &hex_str[..2] == "00"
-        && hex_str[2..4] == format!("{:x?}", OP_PUSHBYTES_32.to_u8())
+    let hex_data = hex::decode(data).expect("invalid p2wsh script pubkey");
+    hex_data.len() == 34
+        && hex_data[0] == 0
+        && hex_data[1] == OP_PUSHBYTES_32.to_u8()
 }
 
 fn is_p2tr(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid p2tr script");
-    hex_str.len() == 68 && hex_str[..2] == format!("{:x?}", OP_PUSHBYTES_32.to_u8())
+    let hex_data = hex::decode(data).expect("invalid p2tr script");
+    return hex_data.len() == 34 && hex_data[0] == OP_PUSHNUM_1.to_u8() && hex_data[1] == OP_PUSHBYTES_32.to_u8()
 }
 
 fn is_op_return(data: &[u8]) -> bool {
@@ -95,6 +95,11 @@ mod test {
         assert!(!is_p2wsh(
             b"001465f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"
         ));
+
+        // p2tr
+        assert!(is_p2tr(b"5120ffd634201e0bd5c11cde8715d9185cb85f4e3074930ebdd4a6e6e56e63203d4c"));
+        assert!(!is_p2tr(b"001465f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"));
+
 
         // op_return
         assert!(is_op_return(b"6a0b68656c6c6f20776f726c64"));

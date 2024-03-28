@@ -14,3 +14,4 @@ hashes = "0.1.9"
 base58 = { path = "base58" }
 opcodes = { path = "opcodes" }
 transaction = { path = "transaction" }
+anyhow = "1.0.81"

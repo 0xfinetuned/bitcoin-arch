@@ -1,11 +1,11 @@
+use anyhow::anyhow;
 use bech32::Fe32;
 
 // TODO(chinonso): update with the actual values
-pub const PUBKEY_ADDRESS_PREFIX_MAIN: u8 = b'1';
-pub const SCRIPT_ADDRESS_PREFIX_MAIN: u8 = b'3';
-pub const PUBKEY_ADDRESS_PREFIX_TEST_M: u8 = b'm';
-pub const PUBKEY_ADDRESS_PREFIX_TEST_N: u8 = b'n';
-pub const SCRIPT_ADDRESS_PREFIX_TEST: u8 = b'2';
+pub const PUBKEY_ADDRESS_PREFIX_MAIN: u8 = 0;
+pub const SCRIPT_ADDRESS_PREFIX_MAIN: u8 = 5;
+pub const PUBKEY_ADDRESS_PREFIX_TEST: u8 = 111;
+pub const SCRIPT_ADDRESS_PREFIX_TEST: u8 = 196;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -71,6 +71,13 @@ impl ScriptPubkey {
 
     pub fn value(&self) -> Vec<u8> {
         self.0.clone()
+    }
+
+    pub fn to_hex(&self) -> anyhow::Result<String> {
+        match std::str::from_utf8(&self.0) {
+            Ok(s) => Ok(s.to_string()),
+            Err(err) => Err(anyhow!("utf8 sequence error: {:?}", err)),
+        }
     }
 }
 
