@@ -16,6 +16,7 @@ pub enum BitcoinNetwork {
     Regtest,
 }
 
+#[derive(Debug, Clone)]
 pub enum Payload {
     PubkeyHash(Vec<u8>),
     ScriptHash(Vec<u8>),
@@ -32,6 +33,7 @@ impl Payload {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct WitnessProgram {
     pub version: WitnessVersion,
     pub data: Vec<u8>,
@@ -43,6 +45,7 @@ impl WitnessProgram {
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum WitnessVersion {
     V0,
     V1,
@@ -58,6 +61,7 @@ impl WitnessVersion {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ScriptPubkey(Vec<u8>);
 
 impl ScriptPubkey {

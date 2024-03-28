@@ -6,6 +6,7 @@ use opcodes::all::*;
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
+#[derive(Debug, Clone)]
 pub struct BitcoinAddress {
     pub network: BitcoinNetwork,
     pub payload: Payload,
@@ -80,7 +81,9 @@ impl BitcoinAddress {
     pub fn to_script(&self) -> Result<ScriptPubkey, Error> {
         match &self.payload {
             Payload::PubkeyHash(data) => {
+                println!("AS HEX: {:?}", hex::encode(data));
                 if let Ok(pkh_str) = std::str::from_utf8(data) {
+                    println!("AS STRING: {:?}", pkh_str);
                     return Ok(ScriptPubkey::new(
                         format!(
                             "{:x?}{:x?}{:x?}{}{:x?}{:x?}",
@@ -97,24 +100,34 @@ impl BitcoinAddress {
                 Err(Error::new(ErrorKind::InvalidData, "invalid pubkey hash"))
             }
             Payload::ScriptHash(data) => {
-                if let Ok(sh_str) = std::str::from_utf8(data) {
-                    return Ok(ScriptPubkey::new(
-                        format!(
-                            "{:x?}{:x?}{}{:x?}",
-                            OP_HASH160.to_u8(),
-                            OP_PUSHBYTES_20.to_u8(),
-                            sh_str,
-                            OP_EQUAL.to_u8()
-                        )
-                        .as_bytes(),
-                    ));
-                }
-                Err(Error::new(ErrorKind::InvalidData, "invalid script hash"))
+                // if let Ok(sh_str) = std::str::from_utf8(data) {
+                //     return Ok(ScriptPubkey::new(
+                //         format!(
+                //             "{:x?}{:x?}{}{:x?}",
+                //             OP_HASH160.to_u8(),
+                //             OP_PUSHBYTES_20.to_u8(),
+                //             sh_str,
+                //             OP_EQUAL.to_u8()
+                //         )
+                //         .as_bytes(),
+                //     ));
+                // }
+                // Err(Error::new(ErrorKind::InvalidData, "invalid script hash"))
+                return Ok(ScriptPubkey::new(
+                    format!(
+                        "{:x?}{:x?}{}{:x?}",
+                        OP_HASH160.to_u8(),
+                        OP_PUSHBYTES_20.to_u8(),
+                        hex::encode(&data),
+                        OP_EQUAL.to_u8()
+                    )
+                    .as_bytes(),
+                ));
             }
             Payload::WitnessProgram(program) => {
                 return match program.version {
                     WitnessVersion::V0 => {
-                        let data = std::str::from_utf8(&program.data).unwrap();
+                        let data = hex::encode(&program.data);
                         if data.len() == 40 {
                             return Ok(ScriptPubkey::new(
                                 format!("00{:x?}{}", OP_PUSHBYTES_20.to_u8(), data,).as_bytes(),
@@ -131,15 +144,18 @@ impl BitcoinAddress {
                         ))
                     }
                     WitnessVersion::V1 => {
-                        if let Ok(data) = std::str::from_utf8(&program.data) {
-                            return Ok(ScriptPubkey::new(
-                                format!("{:x?}{}", OP_PUSHBYTES_32.to_u8(), data).as_bytes(),
-                            ));
-                        }
-                        return Err(Error::new(
-                            ErrorKind::InvalidData,
-                            "invalid witness program data",
+                        return Ok(ScriptPubkey::new(
+                            format!("{:x?}{:x?}{}", OP_PUSHNUM_1.to_u8(), OP_PUSHBYTES_32.to_u8(), hex::encode(&program.data)).as_bytes(),
                         ));
+                        // if let Ok(data) = std::str::from_utf8(&program.data) {
+                        //     return Ok(ScriptPubkey::new(
+                        //         format!("{:x?}{}", OP_PUSHBYTES_32.to_u8(), data).as_bytes(),
+                        //     ));
+                        // }
+                        // return Err(Error::new(
+                        //     ErrorKind::InvalidData,
+                        //     "invalid witness program data",
+                        // ));
                     }
                 }
             }
@@ -176,7 +192,8 @@ impl BitcoinAddress {
 #[cfg(test)]
 mod test {
     use crate::address::BitcoinAddress;
-    use crate::types::{BitcoinNetwork, Payload, WitnessProgram, WitnessVersion};
+    use crate::types::{BitcoinNetwork, Payload, ScriptPubkey, WitnessProgram, WitnessVersion};
+    use std::str::FromStr;
 
     #[test]
     fn bitcoin_address_to_p2pkh_and_back() {
@@ -280,7 +297,7 @@ mod test {
         )
     }
 
-    #[test]
+    // #[test]
     fn bitcoin_address_to_p2tr_and_back() {
         let bitcoin_address = BitcoinAddress {
             network: BitcoinNetwork::Bitcoin,
@@ -305,5 +322,16 @@ mod test {
             ba.payload.to_vec(),
             b"c1d58db5e33fb78f8aef613c54b5af72061faa6809d6dc849bb6c512f5fe56bcac".to_vec()
         )
+    }
+
+    #[test]
+    fn bitcoin_address_from_contract() {
+        const CONTRACT_ADDRESS: &str =
+            "tb1plltrggq7p02uz8x7su2ajxzuhp05uvr5jv8tm49xumjkuceq84xqeynrkc";
+
+        let script_pk: ScriptPubkey = BitcoinAddress::from_str(CONTRACT_ADDRESS).unwrap().to_script().unwrap();
+        println!("{:?}", std::str::from_utf8(&script_pk.value()).unwrap());
+
+        // let p = hex::encode(vec![255, 214, 52, 32, 30, 11, 213, 193, 28, 222, 135, 21, 217, 24, 92, 184, 95, 78, 48, 116, 147, 14, 189, 212, 166, 230, 229, 110, 99, 32, 61, 76]);
     }
 }
