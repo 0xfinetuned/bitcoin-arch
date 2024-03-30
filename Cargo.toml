@@ -15,3 +15,4 @@ base58 = { path = "base58" }
 opcodes = { path = "opcodes" }
 transaction = { path = "transaction" }
 anyhow = "1.0.81"
+bitcoin = "0.31.1"
