@@ -20,7 +20,7 @@ pub struct BitcoinTransaction {
 	pub locktime: u32,
 }
 
-fn decode_compact_size(byte_tx: &mut Vec<u8>) -> u64 {
+pub fn decode_compact_size(byte_tx: &mut Vec<u8>) -> u64 {
 
     let mut integer: u64 = u8::from_le_bytes(
         byte_tx.drain(..1).collect::<Vec<u8>>().try_into().unwrap()
@@ -46,7 +46,7 @@ fn decode_compact_size(byte_tx: &mut Vec<u8>) -> u64 {
 
 }
 
-fn encode_compact_size(integer: usize) -> Vec<u8> {
+pub fn encode_compact_size(integer: usize) -> Vec<u8> {
 
     if integer <= 0xFC {
         u8::try_from(integer).ok().unwrap().to_le_bytes().to_vec()
@@ -142,7 +142,7 @@ impl BitcoinTransaction {
         }
     }
 
-    fn to_hex(self) -> String {
+    pub fn to_hex(self) -> String {
 
         let mut array = Vec::new();
 
