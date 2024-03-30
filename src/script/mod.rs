@@ -1,2 +1,3 @@
 pub mod builder;
-pub mod script;
+mod script;
+pub use script::*;

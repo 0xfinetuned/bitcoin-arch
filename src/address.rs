@@ -1,4 +1,4 @@
-use crate::script::script::Script;
+use crate::script::Script;
 use crate::types::{self, SEGWIT_V0_PUBKEY_HASH_LEN, SEGWIT_V0_SCRIPT_HASH_LEN};
 use crate::types::{BitcoinNetwork, Payload, ScriptType, WitnessProgram, WitnessVersion};
 use crate::utils::get_script_type_with_payload;
