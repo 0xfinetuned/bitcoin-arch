@@ -1,8 +1,8 @@
-use crate::types;
-use crate::types::{BitcoinNetwork, WitnessProgram, WitnessVersion};
-use crate::types::{Payload, ScriptPubkey, ScriptTypes};
-use crate::utils::get_script_type;
-use opcodes::all::*;
+use crate::script::script::Script;
+use crate::types::{self, SEGWIT_V0_PUBKEY_HASH_LEN, SEGWIT_V0_SCRIPT_HASH_LEN};
+use crate::types::{BitcoinNetwork, Payload, ScriptType, WitnessProgram, WitnessVersion};
+use crate::utils::get_script_type_with_payload;
+use anyhow::{anyhow, Result};
 use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
@@ -11,6 +11,14 @@ pub struct BitcoinAddress {
     pub network: BitcoinNetwork,
     pub payload: Payload,
 }
+
+impl PartialEq for BitcoinAddress {
+    fn eq(&self, other: &Self) -> bool {
+        self.network == other.network && self.payload == other.payload
+    }
+}
+
+impl Eq for BitcoinAddress {}
 
 #[derive(Debug, Clone)]
 pub struct ParseError;
@@ -78,108 +86,43 @@ impl FromStr for BitcoinAddress {
 }
 
 impl BitcoinAddress {
-    pub fn to_script(&self) -> Result<ScriptPubkey, Error> {
+    pub fn to_script(&self) -> Result<Script> {
         match &self.payload {
-            Payload::PubkeyHash(data) => {
-                return Ok(ScriptPubkey::new(
-                    format!(
-                        "{:x?}{:x?}{:x?}{}{:x?}{:x?}",
-                        OP_DUP.to_u8(),
-                        OP_HASH160.to_u8(),
-                        OP_PUSHBYTES_20.to_u8(),
-                        hex::encode(&data),
-                        OP_EQUALVERIFY.to_u8(),
-                        OP_CHECKSIG.to_u8()
-                    )
-                    .as_bytes(),
-                ));
-            }
-            Payload::ScriptHash(data) => {
-                return Ok(ScriptPubkey::new(
-                    format!(
-                        "{:x?}{:x?}{}{:x?}",
-                        OP_HASH160.to_u8(),
-                        OP_PUSHBYTES_20.to_u8(),
-                        hex::encode(&data),
-                        OP_EQUAL.to_u8()
-                    )
-                    .as_bytes(),
-                ));
-            }
-            Payload::WitnessProgram(program) => {
-                return match program.version {
-                    WitnessVersion::V0 => {
-                        let data = hex::encode(&program.data);
-                        if data.len() == 40 {
-                            return Ok(ScriptPubkey::new(
-                                format!("00{:x?}{}", OP_PUSHBYTES_20.to_u8(), data,).as_bytes(),
-                            ));
-                        }
-                        if data.len() == 64 {
-                            return Ok(ScriptPubkey::new(
-                                format!("00{:x?}{}", OP_PUSHBYTES_32.to_u8(), data,).as_bytes(),
-                            ));
-                        }
-                        Err(Error::new(
-                            ErrorKind::InvalidData,
-                            "invalid witness program data",
-                        ))
-                    }
-                    WitnessVersion::V1 => {
-                        return Ok(ScriptPubkey::new(
-                            format!(
-                                "{:x?}{:x?}{}",
-                                OP_PUSHNUM_1.to_u8(),
-                                OP_PUSHBYTES_32.to_u8(),
-                                hex::encode(&program.data)
-                            )
-                            .as_bytes(),
-                        ));
-                    }
-                }
-            }
+            Payload::PubkeyHash(data) => Ok(Script::new_p2pkh(data)),
+            Payload::ScriptHash(data) => Ok(Script::new_p2sh(data)),
+            Payload::WitnessProgram(program) => match program.version {
+                WitnessVersion::V0 => match program.data.len() {
+                    SEGWIT_V0_PUBKEY_HASH_LEN => Ok(Script::new_p2wpkh(&program.data)),
+                    SEGWIT_V0_SCRIPT_HASH_LEN => Ok(Script::new_p2wsh(&program.data)),
+                    _ => Err(anyhow!("invalid witness program data")),
+                },
+                WitnessVersion::V1 => Ok(Script::new_p2tr(&program.data)),
+            },
         }
     }
 
-    pub fn from_script(spk: ScriptPubkey, network: BitcoinNetwork) -> Result<Self, Error> {
-        let script_type = get_script_type(&spk.value())?;
+    pub fn from_script(script: Script, network: BitcoinNetwork) -> Result<Self> {
+        let (script_type, script_data) = get_script_type_with_payload(script.as_bytes())?;
         let payload = match script_type {
-            ScriptTypes::P2PKH => {
-                let hex_str = spk.to_hex().unwrap();
-                let data = hex::decode(&hex_str[6..46]).unwrap();
-                Some(Payload::ScriptHash(data))
-            }
-            ScriptTypes::P2SH => {
-                let hex_str = spk.to_hex().unwrap();
-                let data = hex::decode(&hex_str[4..44]).unwrap();
-                Some(Payload::ScriptHash(data))
-            }
-            ScriptTypes::P2WPKH | ScriptTypes::P2WSH => {
-                let hex_str = spk.to_hex().unwrap();
-                let data = hex::decode(&hex_str[4..]).unwrap();
-                Some(Payload::WitnessProgram(WitnessProgram::new(
-                    WitnessVersion::V0,
-                    data,
-                )))
-            }
-            ScriptTypes::P2TR => {
-                let hex_str = spk.to_hex().unwrap();
-                let data = hex::decode(&hex_str[4..]).unwrap();
-                Some(Payload::WitnessProgram(WitnessProgram::new(
-                    WitnessVersion::V1,
-                    data,
-                )))
-            }
-            ScriptTypes::OPReturn => None,
+            ScriptType::P2PKH => Some(Payload::PubkeyHash(script_data)),
+            ScriptType::P2SH => Some(Payload::ScriptHash(script_data)),
+            ScriptType::P2WPKH | ScriptType::P2WSH => Some(Payload::WitnessProgram(
+                WitnessProgram::new(WitnessVersion::V0, script_data),
+            )),
+            ScriptType::P2TR => Some(Payload::WitnessProgram(WitnessProgram::new(
+                WitnessVersion::V1,
+                script_data,
+            ))),
+            ScriptType::OPReturn => None,
         };
 
+        // no support for OP_RETURN scripts yet
         if payload.is_none() {
-            return Err(Error::new(ErrorKind::InvalidData, "script type is invalid"));
+            return Err(anyhow!("script type is invalid"));
         }
 
         Ok(BitcoinAddress {
             network,
-            // TODO(chinonso): is it okay to return empty data for OP_RETURN?
             payload: payload.unwrap(),
         })
     }
@@ -187,134 +130,81 @@ impl BitcoinAddress {
 
 #[cfg(test)]
 mod test {
-    use crate::address::BitcoinAddress;
-    use crate::types::BitcoinNetwork;
-    use std::str::FromStr;
+    use super::*;
+
+    const P2PKH_TESTNET_ADDRESS: &str = "mkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt";
+    const P2PKH_BITCOIN_ADDRESS: &str = "12higDjoCCNXSA95xZMWUdPvXNmkAduhWv";
+
+    const P2SH_TESTNET_ADDRESS: &str = "2Mw3bN3ESQ8rNBRvT8vMwuRGtv1Sagnmx3K";
+    const P2SH_BITCOIN_ADDRESS: &str = "342ftSRCvFHfCeFFBuz4xwbeqnDw6BGUey";
+
+    const P2WPKH_TESTNET_ADDRESS: &str = "tb1q0wd9zhh68uac6mxeyxrnjspaamfr4mu9apqluy";
+    const P2WPKH_BITCOIN_ADDRESS: &str = "bc1q34aq5drpuwy3wgl9lhup9892qp6svr8ldzyy7c";
+
+    const P2WSH_TESTNET_ADDRESS: &str =
+        "tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7";
+    const P2WSH_BITCOIN_ADDRESS: &str =
+        "bc1qeklep85ntjz4605drds6aww9u0qr46qzrv5xswd35uhjuj8ahfcqgf6hak";
+
+    const P2TR_TESTNET_ADDRESS: &str =
+        "tb1plltrggq7p02uz8x7su2ajxzuhp05uvr5jv8tm49xumjkuceq84xqeynrkc";
+    const P2TR_BITCOIN_ADDRESS: &str =
+        "bc1pxwww0ct9ue7e8tdnlmug5m2tamfn7q06sahstg39ys4c9f3340qqxrdu9k";
+
+    fn assert_bitcoin_address_to_script(address: &str, network: BitcoinNetwork) {
+        let expected_address = BitcoinAddress::from_str(address).unwrap();
+
+        let actual_script = expected_address.to_script();
+        assert!(actual_script.is_ok());
+
+        let actual_script = actual_script.unwrap();
+
+        let btc_network = match network {
+            BitcoinNetwork::Bitcoin => bitcoin::network::Network::Bitcoin,
+            BitcoinNetwork::Testnet => bitcoin::network::Network::Testnet,
+            BitcoinNetwork::Signet => bitcoin::network::Network::Signet,
+            BitcoinNetwork::Regtest => bitcoin::network::Network::Regtest,
+        };
+
+        let expected_script = bitcoin::address::Address::from_str(address)
+            .unwrap()
+            .require_network(btc_network)
+            .unwrap()
+            .script_pubkey();
+
+        assert_eq!(actual_script.as_bytes(), expected_script.as_bytes());
+
+        let actual_address = BitcoinAddress::from_script(actual_script, network).unwrap();
+        assert_eq!(actual_address, expected_address);
+    }
 
     #[test]
     fn bitcoin_address_to_p2pkh_and_back() {
-        let expected_btc_address =
-            BitcoinAddress::from_str("mkHS9ne12qx9pS9VojpwU5xtRd4T7X7ZUt").unwrap();
-
-        let script = expected_btc_address.to_script();
-        assert!(script.is_ok());
-
-        let script = script.unwrap();
-        assert_eq!(
-            script.value(),
-            b"76a914344a0f48ca150ec2b903817660b9b68b13a6702688ac"
-        );
-
-        let actual_btc_address = BitcoinAddress::from_script(script, BitcoinNetwork::Testnet);
-
-        assert!(actual_btc_address.is_ok());
-
-        let actual_btc_address = actual_btc_address.unwrap();
-        assert_eq!(
-            actual_btc_address.payload.to_vec(),
-            expected_btc_address.payload.to_vec(),
-        )
+        assert_bitcoin_address_to_script(P2PKH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
+        assert_bitcoin_address_to_script(P2PKH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2sh_and_back() {
-        let expected_btc_address =
-            BitcoinAddress::from_str("2Mw3bN3ESQ8rNBRvT8vMwuRGtv1Sagnmx3K").unwrap();
-
-        let script = expected_btc_address.to_script();
-        assert!(script.is_ok());
-
-        let script = script.unwrap();
-        assert_eq!(
-            script.value(),
-            b"a91429ad5ac881228b62bf7ae509aa3d9971f3b786b587"
-        );
-
-        let actual_btc_address = BitcoinAddress::from_script(script, BitcoinNetwork::Testnet);
-
-        assert!(actual_btc_address.is_ok());
-
-        let actual_btc_address = actual_btc_address.unwrap();
-        assert_eq!(
-            actual_btc_address.payload.to_vec(),
-            expected_btc_address.payload.to_vec(),
-        )
+        assert_bitcoin_address_to_script(P2SH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
+        assert_bitcoin_address_to_script(P2SH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2wpkh_and_back() {
-        let expected_btc_address =
-            BitcoinAddress::from_str("tb1q0wd9zhh68uac6mxeyxrnjspaamfr4mu9apqluy").unwrap();
-
-        let script = expected_btc_address.to_script();
-        assert!(script.is_ok());
-
-        let script = script.unwrap();
-        assert_eq!(
-            script.value(),
-            b"00147b9a515efa3f3b8d6cd9218739403deed23aef85"
-        );
-
-        let actual_btc_address = BitcoinAddress::from_script(script, BitcoinNetwork::Testnet);
-
-        assert!(actual_btc_address.is_ok());
-
-        let actual_btc_address = actual_btc_address.unwrap();
-        assert_eq!(
-            actual_btc_address.payload.to_vec(),
-            expected_btc_address.payload.to_vec(),
-        )
+        assert_bitcoin_address_to_script(P2WPKH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
+        assert_bitcoin_address_to_script(P2WPKH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2wsh_and_back() {
-        let expected_btc_address =
-            BitcoinAddress::from_str("tb1qrp33g0q5c5txsp9arysrx4k6zdkfs4nce4xj0gdcccefvpysxf3q0sl5k7").unwrap();
-
-        let script = expected_btc_address.to_script();
-        assert!(script.is_ok());
-
-        let script = script.unwrap();
-        assert_eq!(
-            script.value(),
-            b"00201863143c14c5166804bd19203356da136c985678cd4d27a1b8c6329604903262"
-        );
-
-        let actual_btc_address = BitcoinAddress::from_script(script, BitcoinNetwork::Testnet);
-
-        assert!(actual_btc_address.is_ok());
-
-        let actual_btc_address = actual_btc_address.unwrap();
-        assert_eq!(
-            actual_btc_address.payload.to_vec(),
-            expected_btc_address.payload.to_vec(),
-        )
+        assert_bitcoin_address_to_script(P2WSH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
+        assert_bitcoin_address_to_script(P2WSH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2tr_and_back() {
-        let expected_btc_address = BitcoinAddress::from_str(
-            "tb1plltrggq7p02uz8x7su2ajxzuhp05uvr5jv8tm49xumjkuceq84xqeynrkc",
-        )
-        .unwrap();
-
-        let script = expected_btc_address.to_script();
-        assert!(script.is_ok());
-
-        let script = script.unwrap();
-        assert_eq!(
-            script.value(),
-            b"5120ffd634201e0bd5c11cde8715d9185cb85f4e3074930ebdd4a6e6e56e63203d4c"
-        );
-
-        let actual_btc_address = BitcoinAddress::from_script(script, BitcoinNetwork::Testnet);
-
-        assert!(actual_btc_address.is_ok());
-
-        let actual_btc_address = actual_btc_address.unwrap();
-        assert_eq!(
-            actual_btc_address.payload.to_vec(),
-            expected_btc_address.payload.to_vec(),
-        )
+        assert_bitcoin_address_to_script(P2TR_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
+        assert_bitcoin_address_to_script(P2TR_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
     }
 }

@@ -1,69 +1,53 @@
-use crate::types::ScriptTypes;
+use crate::types::ScriptType;
+use anyhow::bail;
+use anyhow::Result;
 use opcodes::all::*;
-use std::io::{Error, ErrorKind};
 
-pub fn get_script_type(script: &[u8]) -> Result<ScriptTypes, std::io::Error> {
-    if is_p2pkh(script) {
-        return Ok(ScriptTypes::P2PKH);
+pub fn get_script_type_with_payload(script: &[u8]) -> Result<(ScriptType, Vec<u8>)> {
+    // check if script is p2pkh
+    if script.len() == 25
+        && script[0] == OP_DUP.to_u8()
+        && script[1] == OP_HASH160.to_u8()
+        && script[2] == OP_PUSHBYTES_20.to_u8()
+        && script[23] == OP_EQUALVERIFY.to_u8()
+        && script[24] == OP_CHECKSIG.to_u8()
+    {
+        return Ok((ScriptType::P2PKH, script[3..23].to_vec()));
     }
-    if is_p2sh(script) {
-        return Ok(ScriptTypes::P2SH);
+
+    // check if script is p2sh
+    if script.len() == 23
+        && script[0] == OP_HASH160.to_u8()
+        && script[1] == OP_PUSHBYTES_20.to_u8()
+        && script[22] == OP_EQUAL.to_u8()
+    {
+        return Ok((ScriptType::P2SH, script[2..22].to_vec()));
     }
-    if is_p2wpkh(script) {
-        return Ok(ScriptTypes::P2WPKH);
+
+    // check if script is p2wpkh
+    if script.len() == 22 && script[0] == 0 && script[1] == OP_PUSHBYTES_20.to_u8() {
+        return Ok((ScriptType::P2WPKH, script[2..].to_vec()));
     }
-    if is_p2wsh(script) {
-        return Ok(ScriptTypes::P2WSH);
+
+    // check if script is p2wsh
+    if script.len() == 34 && script[0] == 0 && script[1] == OP_PUSHBYTES_32.to_u8() {
+        return Ok((ScriptType::P2WSH, script[2..].to_vec()));
     }
-    if is_p2tr(script) {
-        return Ok(ScriptTypes::P2TR);
+
+    // check if script is p2tr
+    if script.len() == 34
+        && script[0] == OP_PUSHNUM_1.to_u8()
+        && script[1] == OP_PUSHBYTES_32.to_u8()
+    {
+        return Ok((ScriptType::P2TR, script[2..].to_vec()));
     }
-    if is_op_return(script) {
-        return Ok(ScriptTypes::OPReturn);
+
+    // check if script is op_return
+    if script[0] == OP_RETURN.to_u8() {
+        return Ok((ScriptType::OPReturn, vec![]));
     }
-    Err(Error::new(ErrorKind::InvalidData, "invalid script"))
-}
 
-fn is_p2pkh(data: &[u8]) -> bool {
-    let hex_data = hex::decode(data).expect("invalid p2pkh script pubkey");
-    hex_data.len() == 25
-        && hex_data[0] == OP_DUP.to_u8()
-        && hex_data[1] == OP_HASH160.to_u8()
-        && hex_data[2] == OP_PUSHBYTES_20.to_u8()
-        && hex_data[23] == OP_EQUALVERIFY.to_u8()
-        && hex_data[24] == OP_CHECKSIG.to_u8()
-}
-
-fn is_p2sh(data: &[u8]) -> bool {
-    let hex_data = hex::decode(data).expect("invalid p2sh script pubkey");
-    hex_data.len() == 23
-        && hex_data[0] == OP_HASH160.to_u8()
-        && hex_data[1] == OP_PUSHBYTES_20.to_u8()
-        && hex_data[22] == OP_EQUAL.to_u8()
-}
-
-fn is_p2wpkh(data: &[u8]) -> bool {
-    let hex_data = hex::decode(data).expect("invalid p2wpkh script pubkey");
-    hex_data.len() == 22
-        && hex_data[0] == 0
-        && hex_data[1] == OP_PUSHBYTES_20.to_u8()
-}
-
-fn is_p2wsh(data: &[u8]) -> bool {
-    let hex_data = hex::decode(data).expect("invalid p2wsh script pubkey");
-    hex_data.len() == 34
-        && hex_data[0] == 0
-        && hex_data[1] == OP_PUSHBYTES_32.to_u8()
-}
-
-fn is_p2tr(data: &[u8]) -> bool {
-    let hex_data = hex::decode(data).expect("invalid p2tr script");
-    return hex_data.len() == 34 && hex_data[0] == OP_PUSHNUM_1.to_u8() && hex_data[1] == OP_PUSHBYTES_32.to_u8()
-}
-
-fn is_op_return(data: &[u8]) -> bool {
-    let hex_str = std::str::from_utf8(data).expect("invalid op_return script pubkey");
-    hex_str[..2] == format!("{:x?}", OP_RETURN.to_u8())
+    bail!("invalid script")
 }
 
 #[cfg(test)]
@@ -71,40 +55,45 @@ mod test {
     use super::*;
 
     #[test]
-    fn check_script_type_works() {
-        // p2pkh
-        assert!(is_p2pkh(
-            b"76a91455ae51684c43435da751ac8d2173b2652eb6410588ac"
-        ));
-        assert!(!is_p2pkh(b"a914748284390f9e263a4b766a75d0633c50426eb87587"));
+    fn get_script_type_with_payload_works() {
+        let p2pkh_script = vec![
+            118, 169, 20, 52, 74, 15, 72, 202, 21, 14, 194, 185, 3, 129, 118, 96, 185, 182, 139,
+            19, 166, 112, 38, 136, 172,
+        ];
+        let p2sh_script = vec![
+            169, 20, 41, 173, 90, 200, 129, 34, 139, 98, 191, 122, 229, 9, 170, 61, 153, 113, 243,
+            183, 134, 181, 135,
+        ];
+        let p2wpkh_script = vec![
+            0, 20, 123, 154, 81, 94, 250, 63, 59, 141, 108, 217, 33, 135, 57, 64, 61, 238, 210, 58,
+            239, 133,
+        ];
+        let p2wsh_script = vec![
+            0, 32, 24, 99, 20, 60, 20, 197, 22, 104, 4, 189, 25, 32, 51, 86, 218, 19, 108, 152, 86,
+            120, 205, 77, 39, 161, 184, 198, 50, 150, 4, 144, 50, 98,
+        ];
+        let p2tr_script = vec![
+            81, 32, 255, 214, 52, 32, 30, 11, 213, 193, 28, 222, 135, 21, 217, 24, 92, 184, 95, 78,
+            48, 116, 147, 14, 189, 212, 166, 230, 229, 110, 99, 32, 61, 76,
+        ];
 
-        // p2sh
-        assert!(is_p2sh(b"a914748284390f9e263a4b766a75d0633c50426eb87587"));
-        assert!(!is_p2sh(
-            b"76a91455ae51684c43435da751ac8d2173b2652eb6410588ac"
-        ));
+        let p2pkh_data = p2pkh_script[3..23].to_vec();
+        let p2sh_data = p2sh_script[2..22].to_vec();
+        let p2wpkh_data = p2wpkh_script[2..].to_vec();
+        let p2wsh_data = p2wsh_script[2..].to_vec();
+        let p2tr_data = p2tr_script[2..].to_vec();
 
-        // p2wpkh
-        assert!(is_p2wpkh(b"0014853ec3166860371ee67b7754ff85e13d7a0d6698"));
-        assert!(!is_p2wpkh(b"0114853ec3166860371ee67b7754ff85e13d7a0d6698"));
+        let test_cases = vec![
+            (&p2pkh_script, (ScriptType::P2PKH, p2pkh_data)),
+            (&p2sh_script, (ScriptType::P2SH, p2sh_data)),
+            (&p2wpkh_script, (ScriptType::P2WPKH, p2wpkh_data)),
+            (&p2wsh_script, (ScriptType::P2WSH, p2wsh_data)),
+            (&p2tr_script, (ScriptType::P2TR, p2tr_data)),
+        ];
 
-        // p2wsh
-        assert!(is_p2wsh(
-            b"002065f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"
-        ));
-        assert!(!is_p2wsh(
-            b"001465f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"
-        ));
-
-        // p2tr
-        assert!(is_p2tr(b"5120ffd634201e0bd5c11cde8715d9185cb85f4e3074930ebdd4a6e6e56e63203d4c"));
-        assert!(!is_p2tr(b"001465f91a53cb7120057db3d378bd0f7d944167d43a7dcbff15d6afc4823f1d3ed3"));
-
-
-        // op_return
-        assert!(is_op_return(b"6a0b68656c6c6f20776f726c64"));
-        assert!(!is_op_return(
-            b"76a91455ae51684c43435da751ac8d2173b2652eb6410588ac"
-        ));
+        for (script, actual_result) in test_cases {
+            let expected_result = get_script_type_with_payload(script).unwrap();
+            assert_eq!(actual_result, expected_result);
+        }
     }
 }

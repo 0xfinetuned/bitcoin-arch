@@ -7,6 +7,9 @@ pub const SCRIPT_ADDRESS_PREFIX_MAIN: u8 = 5;
 pub const PUBKEY_ADDRESS_PREFIX_TEST: u8 = 111;
 pub const SCRIPT_ADDRESS_PREFIX_TEST: u8 = 196;
 
+pub const SEGWIT_V0_PUBKEY_HASH_LEN: usize = 20;
+pub const SEGWIT_V0_SCRIPT_HASH_LEN: usize = 32;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum BitcoinNetwork {
@@ -16,7 +19,7 @@ pub enum BitcoinNetwork {
     Regtest,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Payload {
     PubkeyHash(Vec<u8>),
     ScriptHash(Vec<u8>),
@@ -33,7 +36,7 @@ impl Payload {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct WitnessProgram {
     pub version: WitnessVersion,
     pub data: Vec<u8>,
@@ -45,7 +48,7 @@ impl WitnessProgram {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub enum WitnessVersion {
     V0,
     V1,
@@ -61,27 +64,8 @@ impl WitnessVersion {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ScriptPubkey(Vec<u8>);
-
-impl ScriptPubkey {
-    pub fn new(value: &[u8]) -> Self {
-        Self(value.to_vec())
-    }
-
-    pub fn value(&self) -> Vec<u8> {
-        self.0.clone()
-    }
-
-    pub fn to_hex(&self) -> anyhow::Result<String> {
-        match std::str::from_utf8(&self.0) {
-            Ok(s) => Ok(s.to_string()),
-            Err(err) => Err(anyhow!("utf8 sequence error: {:?}", err)),
-        }
-    }
-}
-
-pub enum ScriptTypes {
+#[derive(Eq, PartialEq, Debug)]
+pub enum ScriptType {
     P2PKH,
     P2SH,
     OPReturn,
