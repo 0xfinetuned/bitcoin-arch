@@ -1,6 +1,7 @@
 use super::builder::ScriptBuilder;
 use opcodes::all::*;
 
+#[derive(Debug)]
 pub struct Script(pub(in crate::script) Vec<u8>);
 
 impl Script {
