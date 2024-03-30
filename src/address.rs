@@ -2,8 +2,6 @@ use crate::script::Script;
 use crate::types::{self, SEGWIT_V0_PUBKEY_HASH_LEN, SEGWIT_V0_SCRIPT_HASH_LEN};
 use crate::types::{BitcoinNetwork, Payload, ScriptType, WitnessProgram, WitnessVersion};
 use crate::utils::get_script_type_with_payload;
-use anyhow::{anyhow, Result};
-use std::io::{Error, ErrorKind};
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
@@ -86,7 +84,7 @@ impl FromStr for BitcoinAddress {
 }
 
 impl BitcoinAddress {
-    pub fn to_script(&self) -> Result<Script> {
+    pub fn to_script(&self) -> Result<Script, &str> {
         match &self.payload {
             Payload::PubkeyHash(data) => Ok(Script::new_p2pkh(data)),
             Payload::ScriptHash(data) => Ok(Script::new_p2sh(data)),
@@ -94,14 +92,14 @@ impl BitcoinAddress {
                 WitnessVersion::V0 => match program.data.len() {
                     SEGWIT_V0_PUBKEY_HASH_LEN => Ok(Script::new_p2wpkh(&program.data)),
                     SEGWIT_V0_SCRIPT_HASH_LEN => Ok(Script::new_p2wsh(&program.data)),
-                    _ => Err(anyhow!("invalid witness program data")),
+                    _ => Err("invalid witness program data"),
                 },
                 WitnessVersion::V1 => Ok(Script::new_p2tr(&program.data)),
             },
         }
     }
 
-    pub fn from_script(script: Script, network: BitcoinNetwork) -> Result<Self> {
+    pub fn from_script(script: Script, network: BitcoinNetwork) -> Result<Self, &'static str> {
         let (script_type, script_data) = get_script_type_with_payload(script.as_bytes())?;
         let payload = match script_type {
             ScriptType::P2PKH => Some(Payload::PubkeyHash(script_data)),
@@ -118,7 +116,7 @@ impl BitcoinAddress {
 
         // no support for OP_RETURN scripts yet
         if payload.is_none() {
-            return Err(anyhow!("script type is invalid"));
+            return Err("script type is invalid");
         }
 
         Ok(BitcoinAddress {

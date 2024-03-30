@@ -1,9 +1,7 @@
 use crate::types::ScriptType;
-use anyhow::bail;
-use anyhow::Result;
 use opcodes::all::*;
 
-pub fn get_script_type_with_payload(script: &[u8]) -> Result<(ScriptType, Vec<u8>)> {
+pub fn get_script_type_with_payload(script: &[u8]) -> Result<(ScriptType, Vec<u8>), &'static str> {
     // check if script is p2pkh
     if script.len() == 25
         && script[0] == OP_DUP.to_u8()
@@ -47,7 +45,7 @@ pub fn get_script_type_with_payload(script: &[u8]) -> Result<(ScriptType, Vec<u8
         return Ok((ScriptType::OPReturn, vec![]));
     }
 
-    bail!("invalid script")
+    Err("invalid script")
 }
 
 #[cfg(test)]

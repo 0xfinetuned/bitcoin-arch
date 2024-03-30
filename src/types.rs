@@ -1,4 +1,3 @@
-use anyhow::anyhow;
 use bech32::Fe32;
 
 // TODO(chinonso): update with the actual values
