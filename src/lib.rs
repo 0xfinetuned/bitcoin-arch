@@ -1,6 +1,6 @@
-mod address;
-mod script;
-mod types;
-mod utils;
+pub mod address;
+pub mod script;
+pub mod types;
+pub mod utils;
 
 pub use transaction;
