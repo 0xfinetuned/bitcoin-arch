@@ -1,5 +1,7 @@
 use std::convert::TryFrom;
+use borsh::{BorshDeserialize, BorshSerialize};
 
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct Input {
 	pub txid: String,
 	pub vout: u32,
@@ -8,11 +10,13 @@ pub struct Input {
     pub witness: Vec<Vec<u8>>,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct Output {
 	pub amount: u64,
 	pub script_pubkey: Vec<u8>,
 }
 
+#[derive(BorshDeserialize, BorshSerialize)]
 pub struct BitcoinTransaction {
 	pub version: u32,
 	pub inputs: Vec<Input>,
