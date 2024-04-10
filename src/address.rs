@@ -1,12 +1,12 @@
-use crate::script::Script;
+use crate::script::ScriptBuf;
 use crate::types::{self, SEGWIT_V0_PUBKEY_HASH_LEN, SEGWIT_V0_SCRIPT_HASH_LEN};
-use crate::types::{BitcoinNetwork, Payload, ScriptType, WitnessProgram, WitnessVersion};
+use crate::types::{Network, Payload, ScriptType, WitnessProgram, WitnessVersion};
 use crate::utils::get_script_type_with_payload;
 use std::str::FromStr;
 
 #[derive(Debug, Clone)]
 pub struct BitcoinAddress {
-    pub network: BitcoinNetwork,
+    pub network: Network,
     pub payload: Payload,
 }
 
@@ -34,9 +34,9 @@ impl FromStr for BitcoinAddress {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let bech32_network = match find_bech32_prefix(s) {
-            "bc" | "BC" => Some(BitcoinNetwork::Bitcoin),
-            "tb" | "TB" => Some(BitcoinNetwork::Testnet),
-            "bcrt" | "BCRT" => Some(BitcoinNetwork::Regtest),
+            "bc" | "BC" => Some(Network::Bitcoin),
+            "tb" | "TB" => Some(Network::Testnet),
+            "bcrt" | "BCRT" => Some(Network::Regtest),
             _ => None,
         };
         if let Some(network) = bech32_network {
@@ -60,22 +60,18 @@ impl FromStr for BitcoinAddress {
         }
 
         let (network, payload) = match data[0] {
-            types::PUBKEY_ADDRESS_PREFIX_MAIN => (
-                BitcoinNetwork::Bitcoin,
-                Payload::PubkeyHash(data[1..].to_vec()),
-            ),
-            types::SCRIPT_ADDRESS_PREFIX_MAIN => (
-                BitcoinNetwork::Bitcoin,
-                Payload::ScriptHash(data[1..].to_vec()),
-            ),
-            types::PUBKEY_ADDRESS_PREFIX_TEST => (
-                BitcoinNetwork::Testnet,
-                Payload::PubkeyHash(data[1..].to_vec()),
-            ),
-            types::SCRIPT_ADDRESS_PREFIX_TEST => (
-                BitcoinNetwork::Testnet,
-                Payload::ScriptHash(data[1..].to_vec()),
-            ),
+            types::PUBKEY_ADDRESS_PREFIX_MAIN => {
+                (Network::Bitcoin, Payload::PubkeyHash(data[1..].to_vec()))
+            }
+            types::SCRIPT_ADDRESS_PREFIX_MAIN => {
+                (Network::Bitcoin, Payload::ScriptHash(data[1..].to_vec()))
+            }
+            types::PUBKEY_ADDRESS_PREFIX_TEST => {
+                (Network::Testnet, Payload::PubkeyHash(data[1..].to_vec()))
+            }
+            types::SCRIPT_ADDRESS_PREFIX_TEST => {
+                (Network::Testnet, Payload::ScriptHash(data[1..].to_vec()))
+            }
             _ => panic!("base58 invalid address version"),
         };
 
@@ -84,22 +80,22 @@ impl FromStr for BitcoinAddress {
 }
 
 impl BitcoinAddress {
-    pub fn to_script(&self) -> Result<Script, &str> {
+    pub fn to_script(&self) -> Result<ScriptBuf, &str> {
         match &self.payload {
-            Payload::PubkeyHash(data) => Ok(Script::new_p2pkh(data)),
-            Payload::ScriptHash(data) => Ok(Script::new_p2sh(data)),
+            Payload::PubkeyHash(data) => Ok(ScriptBuf::new_p2pkh(data)),
+            Payload::ScriptHash(data) => Ok(ScriptBuf::new_p2sh(data)),
             Payload::WitnessProgram(program) => match program.version {
                 WitnessVersion::V0 => match program.data.len() {
-                    SEGWIT_V0_PUBKEY_HASH_LEN => Ok(Script::new_p2wpkh(&program.data)),
-                    SEGWIT_V0_SCRIPT_HASH_LEN => Ok(Script::new_p2wsh(&program.data)),
+                    SEGWIT_V0_PUBKEY_HASH_LEN => Ok(ScriptBuf::new_p2wpkh(&program.data)),
+                    SEGWIT_V0_SCRIPT_HASH_LEN => Ok(ScriptBuf::new_p2wsh(&program.data)),
                     _ => Err("invalid witness program data"),
                 },
-                WitnessVersion::V1 => Ok(Script::new_p2tr(&program.data)),
+                WitnessVersion::V1 => Ok(ScriptBuf::new_p2tr(&program.data)),
             },
         }
     }
 
-    pub fn from_script(script: Script, network: BitcoinNetwork) -> Result<Self, &'static str> {
+    pub fn from_script(script: ScriptBuf, network: Network) -> Result<Self, &'static str> {
         let (script_type, script_data) = get_script_type_with_payload(script.as_bytes())?;
         let payload = match script_type {
             ScriptType::P2PKH => Some(Payload::PubkeyHash(script_data)),
@@ -149,7 +145,7 @@ mod test {
     const P2TR_BITCOIN_ADDRESS: &str =
         "bc1pxwww0ct9ue7e8tdnlmug5m2tamfn7q06sahstg39ys4c9f3340qqxrdu9k";
 
-    fn assert_bitcoin_address_to_script(address: &str, network: BitcoinNetwork) {
+    fn assert_bitcoin_address_to_script(address: &str, network: Network) {
         let expected_address = BitcoinAddress::from_str(address).unwrap();
 
         let actual_script = expected_address.to_script();
@@ -158,10 +154,10 @@ mod test {
         let actual_script = actual_script.unwrap();
 
         let btc_network = match network {
-            BitcoinNetwork::Bitcoin => bitcoin::network::Network::Bitcoin,
-            BitcoinNetwork::Testnet => bitcoin::network::Network::Testnet,
-            BitcoinNetwork::Signet => bitcoin::network::Network::Signet,
-            BitcoinNetwork::Regtest => bitcoin::network::Network::Regtest,
+            Network::Bitcoin => bitcoin::network::Network::Bitcoin,
+            Network::Testnet => bitcoin::network::Network::Testnet,
+            Network::Signet => bitcoin::network::Network::Signet,
+            Network::Regtest => bitcoin::network::Network::Regtest,
         };
 
         let expected_script = bitcoin::address::Address::from_str(address)
@@ -178,31 +174,31 @@ mod test {
 
     #[test]
     fn bitcoin_address_to_p2pkh_and_back() {
-        assert_bitcoin_address_to_script(P2PKH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
-        assert_bitcoin_address_to_script(P2PKH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
+        assert_bitcoin_address_to_script(P2PKH_TESTNET_ADDRESS, Network::Testnet);
+        assert_bitcoin_address_to_script(P2PKH_BITCOIN_ADDRESS, Network::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2sh_and_back() {
-        assert_bitcoin_address_to_script(P2SH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
-        assert_bitcoin_address_to_script(P2SH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
+        assert_bitcoin_address_to_script(P2SH_TESTNET_ADDRESS, Network::Testnet);
+        assert_bitcoin_address_to_script(P2SH_BITCOIN_ADDRESS, Network::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2wpkh_and_back() {
-        assert_bitcoin_address_to_script(P2WPKH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
-        assert_bitcoin_address_to_script(P2WPKH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
+        assert_bitcoin_address_to_script(P2WPKH_TESTNET_ADDRESS, Network::Testnet);
+        assert_bitcoin_address_to_script(P2WPKH_BITCOIN_ADDRESS, Network::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2wsh_and_back() {
-        assert_bitcoin_address_to_script(P2WSH_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
-        assert_bitcoin_address_to_script(P2WSH_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
+        assert_bitcoin_address_to_script(P2WSH_TESTNET_ADDRESS, Network::Testnet);
+        assert_bitcoin_address_to_script(P2WSH_BITCOIN_ADDRESS, Network::Bitcoin);
     }
 
     #[test]
     fn bitcoin_address_to_p2tr_and_back() {
-        assert_bitcoin_address_to_script(P2TR_TESTNET_ADDRESS, BitcoinNetwork::Testnet);
-        assert_bitcoin_address_to_script(P2TR_BITCOIN_ADDRESS, BitcoinNetwork::Bitcoin);
+        assert_bitcoin_address_to_script(P2TR_TESTNET_ADDRESS, Network::Testnet);
+        assert_bitcoin_address_to_script(P2TR_BITCOIN_ADDRESS, Network::Bitcoin);
     }
 }

@@ -1,12 +1,12 @@
 use opcodes::Opcode;
 
-use super::script::Script;
+use super::script::ScriptBuf;
 
-pub struct ScriptBuilder(Script);
+pub struct ScriptBuilder(ScriptBuf);
 
 impl ScriptBuilder {
     pub fn new() -> Self {
-        ScriptBuilder(Script(Vec::new()))
+        ScriptBuilder(ScriptBuf(Vec::new()))
     }
 
     pub fn push_opcode(&mut self, opcode: Opcode) -> &mut Self {
@@ -46,7 +46,7 @@ impl ScriptBuilder {
         todo!()
     }
 
-    pub fn into_script(self) -> Script {
+    pub fn into_script(self) -> ScriptBuf {
         self.0
     }
 }

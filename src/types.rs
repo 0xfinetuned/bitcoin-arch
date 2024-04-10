@@ -11,7 +11,7 @@ pub const SEGWIT_V0_SCRIPT_HASH_LEN: usize = 32;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum BitcoinNetwork {
+pub enum Network {
     Bitcoin,
     Testnet,
     Signet,

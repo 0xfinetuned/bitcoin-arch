@@ -2,9 +2,9 @@ use super::builder::ScriptBuilder;
 use opcodes::all::*;
 
 #[derive(Debug)]
-pub struct Script(pub(in crate::script) Vec<u8>);
+pub struct ScriptBuf(pub(in crate::script) Vec<u8>);
 
-impl Script {
+impl ScriptBuf {
     pub(in crate::script) fn push_value(&mut self, data: u8) {
         self.0.push(data);
     }
@@ -73,7 +73,7 @@ mod test {
 
     #[test]
     fn push_value_works() {
-        let mut script = Script(vec![]);
+        let mut script = ScriptBuf(vec![]);
         script.push_value(1);
         assert_eq!(script.0[0], 1u8);
         script.push_value(2);
@@ -82,7 +82,7 @@ mod test {
 
     #[test]
     fn push_slice_works() {
-        let mut script = Script(vec![]);
+        let mut script = ScriptBuf(vec![]);
         script.push_slice(&[255, 214, 52, 32, 30, 11, 213, 193, 28, 222]);
         script.push_slice(&[135, 21, 217, 24, 92, 184, 95, 78, 48, 116, 147]);
         script.push_slice(&[14, 189, 212, 166, 230, 229, 110, 99, 32, 61, 76]);
@@ -97,7 +97,7 @@ mod test {
 
     #[test]
     fn as_bytes_works() {
-        let mut script = Script(vec![]);
+        let mut script = ScriptBuf(vec![]);
         script.push_slice(&[255, 214, 52, 32, 30, 11, 213, 193, 28, 222]);
         assert_eq!(
             script.as_bytes(),
@@ -107,7 +107,7 @@ mod test {
 
     #[test]
     fn new_p2pkh_works() {
-        let script = Script::new_p2pkh(&[
+        let script = ScriptBuf::new_p2pkh(&[
             52, 74, 15, 72, 202, 21, 14, 194, 185, 3, 129, 118, 96, 185, 182, 139, 19, 166, 112, 38,
         ]);
         assert_eq!(
@@ -121,7 +121,7 @@ mod test {
 
     #[test]
     fn new_p2sh_works() {
-        let script = Script::new_p2sh(&[
+        let script = ScriptBuf::new_p2sh(&[
             41, 173, 90, 200, 129, 34, 139, 98, 191, 122, 229, 9, 170, 61, 153, 113, 243, 183, 134,
             181,
         ]);
@@ -136,7 +136,7 @@ mod test {
 
     #[test]
     fn new_p2wpkh_works() {
-        let script = Script::new_p2wpkh(&[
+        let script = ScriptBuf::new_p2wpkh(&[
             123, 154, 81, 94, 250, 63, 59, 141, 108, 217, 33, 135, 57, 64, 61, 238, 210, 58, 239,
             133,
         ]);
@@ -151,7 +151,7 @@ mod test {
 
     #[test]
     fn new_p2wsh_works() {
-        let script = Script::new_p2wsh(&[
+        let script = ScriptBuf::new_p2wsh(&[
             24, 99, 20, 60, 20, 197, 22, 104, 4, 189, 25, 32, 51, 86, 218, 19, 108, 152, 86, 120,
             205, 77, 39, 161, 184, 198, 50, 150, 4, 144, 50, 98,
         ]);
@@ -166,7 +166,7 @@ mod test {
 
     #[test]
     fn new_p2tr_works() {
-        let script = Script::new_p2tr(&[
+        let script = ScriptBuf::new_p2tr(&[
             255, 214, 52, 32, 30, 11, 213, 193, 28, 222, 135, 21, 217, 24, 92, 184, 95, 78, 48,
             116, 147, 14, 189, 212, 166, 230, 229, 110, 99, 32, 61, 76,
         ]);
