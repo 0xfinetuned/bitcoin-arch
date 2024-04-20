@@ -67,6 +67,12 @@ impl ScriptBuf {
     }
 }
 
+impl From<&[u8]> for ScriptBuf {
+    fn from(value: &[u8]) -> Self {
+        ScriptBuf(value.to_vec())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
